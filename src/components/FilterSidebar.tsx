@@ -14,6 +14,9 @@ const categories = [
   { key: 'furniture', label: 'Furniture', icon: '🪑' },
   { key: 'clothing', label: 'Clothing', icon: '👕' },
   { key: 'sports', label: 'Sports & Recreation', icon: '⚽' },
+  { key: 'stationery', label: 'Stationery', icon: '✏️' },
+  { key: 'bags', label: 'Bags', icon: '🎒' },
+  { key: 'lab-equipments', label: 'Lab Equipments', icon: '🔬' },
   { key: 'misc', label: 'Miscellaneous', icon: '📦' },
 ];
 
@@ -150,12 +153,12 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ isOpen, onClose }) => {
           <div className="mb-8">
             <h3 className="font-semibold text-gray-900 mb-4">Quick Filters</h3>
             <div className="grid grid-cols-2 gap-2">
-              {[
-                { label: 'Under $25', range: [0, 25] as [number, number] },
+              {([
+                { label: 'Under $25', range: [0, 25] },
                 { label: '$25 - $100', range: [25, 100] },
                 { label: '$100 - $500', range: [100, 500] },
                 { label: 'Over $500', range: [500, 10000] },
-              ].map((filter) => (
+              ] as { label: string; range: [number, number] }[]).map((filter) => (
                 <button
                   key={filter.label}
                   onClick={() => setPriceRange(filter.range)}

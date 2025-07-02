@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Sparkles, Upload } from 'lucide-react';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { useAuth } from '../context/AuthContext';
 import ImageUpload from '../components/ImageUpload';
@@ -12,9 +12,12 @@ interface AddItemProps {
 const categories = [
   { key: 'textbooks', label: 'Textbooks' },
   { key: 'electronics', label: 'Electronics' },
-  { key: 'furniture', label: 'Furniture' },
+  { key: 'furniture', label:'Furniture' },
   { key: 'clothing', label: 'Clothing' },
   { key: 'sports', label: 'Sports & Recreation' },
+  { key: 'stationery', label: 'Stationery' },
+  { key: 'bags', label: 'Bags' },
+  { key: 'lab-equipments', label: 'Lab Equipments' },
   { key: 'misc', label: 'Miscellaneous' },
 ];
 
@@ -27,8 +30,9 @@ const conditions = [
 ];
 
 const AddItem: React.FC<AddItemProps> = ({ onBack, onSuccess }) => {
-  const { addItem, isLoading } = useMarketplace();
+  const { addItem } = useMarketplace();
   const { currentUser } = useAuth();
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -40,6 +44,7 @@ const AddItem: React.FC<AddItemProps> = ({ onBack, onSuccess }) => {
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -86,12 +91,30 @@ const AddItem: React.FC<AddItemProps> = ({ onBack, onSuccess }) => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const simulateProgress = () => {
+    setUploadProgress(0);
+    const interval = setInterval(() => {
+      setUploadProgress(prev => {
+        if (prev >= 90) {
+          clearInterval(interval);
+          return 90;
+        }
+        return prev + Math.random() * 15;
+      });
+    }, 200);
+    return interval;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm() || !currentUser) return;
 
     setIsSubmitting(true);
+    setErrors({});
+    
+    // Start progress simulation
+    const progressInterval = simulateProgress();
 
     try {
       await addItem({
@@ -106,14 +129,80 @@ const AddItem: React.FC<AddItemProps> = ({ onBack, onSuccess }) => {
         location: formData.location,
       }, selectedImages);
 
-      onSuccess();
+      // Complete progress
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+      
+      // Small delay to show 100% completion
+      setTimeout(() => {
+        setShowSuccessMessage(true);
+      }, 500);
+
     } catch (error: any) {
+      clearInterval(progressInterval);
       console.error('Error adding item:', error);
       setErrors({ submit: error.message || 'Failed to create listing. Please try again.' });
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const handleConfirmationComplete = () => {
+    setShowSuccessMessage(false);
+    onSuccess();
+  };
+
+  // Success Message Component
+  if (showSuccessMessage) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center max-w-lg mx-auto p-8">
+          <div className="w-24 h-24 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
+            <CheckCircle className="h-12 w-12 text-white" />
+          </div>
+          <h2 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-4">
+            Item Listed Successfully!
+          </h2>
+          <p className="text-gray-600 text-lg mb-6 leading-relaxed">
+            Your item "{formData.title}" has been posted to the marketplace and is now visible to other students.
+          </p>
+          
+          <div className="bg-green-50 border-2 border-green-200 rounded-2xl p-6 mb-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <Sparkles className="h-6 w-6 text-green-600" />
+              <h3 className="text-lg font-semibold text-green-900">What happens next?</h3>
+            </div>
+            <ul className="text-green-700 space-y-2 text-left">
+              <li>• Your listing is now live on the marketplace</li>
+              <li>• Students can view and contact you about your item</li>
+              <li>• You'll receive messages from interested buyers</li>
+              <li>• Check your messages regularly for inquiries</li>
+            </ul>
+          </div>
+
+          <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl p-4 mb-6">
+            <div className="flex items-center space-x-4">
+              <div className="w-16 h-16 bg-purple-100 rounded-xl flex items-center justify-center">
+                <span className="text-2xl">📦</span>
+              </div>
+              <div className="text-left">
+                <h4 className="font-semibold text-gray-900">{formData.title}</h4>
+                <p className="text-purple-600 font-bold text-lg">${formData.price}</p>
+                <p className="text-sm text-gray-600 capitalize">{formData.category} • {formData.condition}</p>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={handleConfirmationComplete}
+            className="bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-4 rounded-2xl hover:from-green-700 hover:to-green-800 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+          >
+            Continue to Marketplace
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -285,16 +374,32 @@ const AddItem: React.FC<AddItemProps> = ({ onBack, onSuccess }) => {
             <button
               type="button"
               onClick={onBack}
-              className="flex-1 bg-gray-100 text-gray-700 py-3 px-6 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+              disabled={isSubmitting}
+              className="flex-1 bg-gray-100 text-gray-700 py-3 px-6 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || isLoading}
-              className="flex-1 bg-purple-600 text-white py-3 px-6 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+              disabled={isSubmitting}
+              className="flex-1 bg-purple-600 text-white py-3 px-6 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium relative overflow-hidden"
             >
-              {isSubmitting ? 'Listing Item...' : 'List Item'}
+              {isSubmitting ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Uploading... {Math.round(uploadProgress)}%</span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center space-x-2">
+                  <Upload className="h-4 w-4" />
+                  <span>List Item</span>
+                </div>
+              )}
+              
+              {/* Progress Bar */}
+              {isSubmitting && (
+                <div className="absolute bottom-0 left-0 h-1 bg-white/30 transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+              )}
             </button>
           </div>
         </form>

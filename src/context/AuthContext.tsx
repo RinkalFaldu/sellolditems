@@ -7,9 +7,11 @@ import { User } from '../types';
 interface AuthContextType {
   currentUser: User | null;
   login: (email: string, password: string) => Promise<boolean>;
-  signup: (email: string, password: string, name: string, uwNetId: string) => Promise<boolean>;
+  signup: (email: string, password: string, name: string, uwNetId: string) => Promise<{ success: boolean; showConfirmation?: boolean }>;
   logout: () => Promise<void>;
   isLoading: boolean;
+  showSignupConfirmation: boolean;
+  hideSignupConfirmation: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,9 +31,15 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showSignupConfirmation, setShowSignupConfirmation] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      // Don't process auth changes if we're showing signup confirmation
+      if (showSignupConfirmation) {
+        return;
+      }
+
       if (firebaseUser) {
         try {
           const userData = await getCurrentUserData(firebaseUser);
@@ -47,7 +55,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
 
     return unsubscribe;
-  }, []);
+  }, [showSignupConfirmation]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
@@ -63,18 +71,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const signup = async (email: string, password: string, name: string, uwNetId: string): Promise<boolean> => {
+  const signup = async (email: string, password: string, name: string, uwNetId: string): Promise<{ success: boolean; showConfirmation?: boolean }> => {
     try {
       setIsLoading(true);
-      const userData = await createUserAccount(email, password, name, uwNetId);
-      setCurrentUser(userData);
-      return true;
+      
+      // Create account
+      await createUserAccount(email, password, name, uwNetId);
+      
+      // Sign out immediately after account creation
+      await signOutUser();
+      
+      // Show confirmation screen
+      setShowSignupConfirmation(true);
+      setCurrentUser(null);
+      
+      return { success: true, showConfirmation: true };
     } catch (error: any) {
       console.error('Signup error:', error);
-      return false;
+      return { success: false };
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const hideSignupConfirmation = () => {
+    setShowSignupConfirmation(false);
   };
 
   const logout = async (): Promise<void> => {
@@ -93,6 +114,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signup,
     logout,
     isLoading,
+    showSignupConfirmation,
+    hideSignupConfirmation,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

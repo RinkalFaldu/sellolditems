@@ -69,6 +69,9 @@ const Marketplace: React.FC<MarketplaceProps> = ({ onItemClick }) => {
     { key: 'furniture', label: 'Furniture', count: items.filter(i => i.category === 'furniture').length },
     { key: 'clothing', label: 'Clothing', count: items.filter(i => i.category === 'clothing').length },
     { key: 'sports', label: 'Sports', count: items.filter(i => i.category === 'sports').length },
+    { key: 'stationery', label: 'Stationery', count: items.filter(i => i.category === 'stationery').length },
+    { key: 'bags', label: 'Bags', count: items.filter(i => i.category === 'bags').length },
+    { key: 'lab-equipments', label: 'Lab Equipments', count: items.filter(i => i.category === 'lab-equipments').length },
     { key: 'misc', label: 'Miscellaneous', count: items.filter(i => i.category === 'misc').length },
   ];
 
@@ -187,7 +190,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ onItemClick }) => {
                     Popular items among UW students right now
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {['MacBook Pro', 'Textbooks', 'Dorm Furniture', 'Winter Clothes'].map((trend) => (
+                    {['MacBook Pro', 'Textbooks', 'Lab Equipment', 'Backpacks', 'Stationery'].map((trend) => (
                       <span key={trend} className="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-sm">
                         {trend}
                       </span>

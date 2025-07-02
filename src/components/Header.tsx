@@ -1,11 +1,12 @@
+import type { Page } from '../App'; // Add this import
 import React, { useState } from 'react';
 import { Search, MessageCircle, Plus, User, LogOut, Menu, X, Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useMarketplace } from '../context/MarketplaceContext';
 
 interface HeaderProps {
-  currentPage: string;
-  onNavigate: (page: string) => void;
+  currentPage: Page;
+  onNavigate: (page: Page) => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
@@ -21,11 +22,11 @@ const Header: React.FC<HeaderProps> = ({ currentPage, onNavigate }) => {
     }
   };
 
-  const navigation = [
-    { name: 'Marketplace', key: 'marketplace' },
-    { name: 'Messages', key: 'messages' },
-    { name: 'My Listings', key: 'my-listings' },
-  ];
+  const navigation: { name: string; key: Page }[] = [
+  { name: 'Marketplace', key: 'marketplace' },
+  { name: 'Messages', key: 'messages' },
+  { name: 'My Listings', key: 'my-listings' },
+];
 
   return (
     <header className="bg-white/95 backdrop-blur-md shadow-lg border-b border-purple-100 sticky top-0 z-50">

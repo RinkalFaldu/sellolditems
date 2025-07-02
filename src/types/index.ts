@@ -40,4 +40,4 @@ export interface Conversation {
   updatedAt: string;
 }
 
-export type Category = 'textbooks' | 'electronics' | 'furniture' | 'clothing' | 'sports' | 'misc';
+export type Category = 'textbooks' | 'electronics' | 'furniture' | 'clothing' | 'sports' | 'stationery' | 'bags' | 'lab-equipments' | 'misc';

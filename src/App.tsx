@@ -10,7 +10,7 @@ import Messages from './pages/Messages';
 import MyListings from './pages/MyListings';
 import Profile from './pages/Profile';
 
-type Page = 'marketplace' | 'item-detail' | 'add-item' | 'messages' | 'my-listings' | 'profile';
+export type Page = 'marketplace' | 'item-detail' | 'add-item' | 'messages' | 'my-listings' | 'profile';
 
 function AppContent() {
   const { currentUser, isLoading } = useAuth();
@@ -90,7 +90,7 @@ function AppContent() {
       case 'messages':
         return (
           <Messages
-            selectedConversationId={selectedConversationId}
+            selectedConversationId={selectedConversationId ?? undefined}
             onBack={() => setCurrentPage('marketplace')}
           />
         );

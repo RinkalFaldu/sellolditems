@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, UserPlus, LogIn, Shield, Users, MessageCircle, Search, Sparkles, Award, Clock } from 'lucide-react';
+import { Eye, EyeOff, UserPlus, LogIn, Shield, Users, MessageCircle, Search, Sparkles, Award, Clock, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Login: React.FC = () => {
-  const { login, signup } = useAuth();
+  const { login, signup, showSignupConfirmation, hideSignupConfirmation } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -61,24 +61,30 @@ const Login: React.FC = () => {
     setIsLoading(true);
 
     try {
-      let success = false;
-      
       if (isSignUp) {
-        success = await signup(formData.email, formData.password, formData.name, formData.uwNetId);
-        if (!success) {
+        const result = await signup(formData.email, formData.password, formData.name, formData.uwNetId);
+        if (!result.success) {
           setErrors({ submit: 'Failed to create account. Please try again.' });
         }
+        // If successful, the confirmation will be handled by the showSignupConfirmation state
       } else {
-        success = await login(formData.email, formData.password);
+        const success = await login(formData.email, formData.password);
         if (!success) {
           setErrors({ submit: 'Invalid email or password. Please try again.' });
         }
+        // Login success will automatically navigate via AuthContext
       }
     } catch (error) {
       setErrors({ submit: 'An error occurred. Please try again.' });
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleConfirmationComplete = () => {
+    hideSignupConfirmation();
+    setIsSignUp(false);
+    setFormData({ email: formData.email, password: '', name: '', uwNetId: '' }); // Keep email for convenience
   };
 
   const features = [
@@ -113,6 +119,71 @@ const Login: React.FC = () => {
     { icon: Award, label: 'Items Sold', value: '10,000+' },
     { icon: Clock, label: 'Avg Response', value: '< 2 hours' },
   ];
+
+  // Success Message Component - Show this when signup is successful
+  if (showSignupConfirmation) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 relative overflow-hidden flex items-center justify-center">
+        {/* Background Decorations */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-green-400 to-green-600 rounded-full opacity-10 blur-3xl"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full opacity-10 blur-3xl"></div>
+        </div>
+
+        <div className="relative text-center max-w-lg mx-auto p-8">
+          <div className="w-24 h-24 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce shadow-2xl">
+            <CheckCircle className="h-12 w-12 text-white" />
+          </div>
+          
+          <h2 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-4">
+            Account Created Successfully!
+          </h2>
+          
+          <p className="text-gray-600 text-lg mb-8 leading-relaxed">
+            Welcome to HuskyMarket! Your account has been created and you're ready to start buying and selling with fellow UW students.
+          </p>
+          
+          <div className="bg-white/80 backdrop-blur-sm border-2 border-green-200 rounded-2xl p-6 mb-8 shadow-xl">
+            <div className="flex items-center space-x-3 mb-4">
+              <Shield className="h-6 w-6 text-green-600" />
+              <h3 className="text-lg font-semibold text-green-900">What's Next?</h3>
+            </div>
+            <ul className="text-green-700 space-y-2 text-left">
+              <li className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span>Please sign in with your new credentials</span>
+              </li>
+              <li className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span>Start browsing items from fellow students</span>
+              </li>
+              <li className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span>List your first item for sale</span>
+              </li>
+              <li className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span>Connect with the UW community</span>
+              </li>
+            </ul>
+          </div>
+
+          <div className="bg-gradient-to-r from-green-100 to-blue-100 border border-green-200 rounded-2xl p-4 mb-6">
+            <p className="text-sm text-green-800 font-medium">
+              🎉 You're now part of the HuskyMarket community!
+            </p>
+          </div>
+          
+          <button
+            onClick={handleConfirmationComplete}
+            className="bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-4 rounded-2xl hover:from-green-700 hover:to-green-800 transition-all duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+          >
+            Continue to Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 relative overflow-hidden">
