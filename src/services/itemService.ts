@@ -18,32 +18,56 @@ import { Item, User } from '../types';
 
 export const uploadItemImages = async (images: File[], itemId: string): Promise<string[]> => {
   try {
-    // For demo purposes, we'll use placeholder images to speed up the process
-    // In production, you would upload to Firebase Storage
-    const placeholderImages = [
-      'https://images.pexels.com/photos/1029757/pexels-photo-1029757.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/1029757/pexels-photo-1029757.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/1029757/pexels-photo-1029757.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/1029757/pexels-photo-1029757.jpeg?auto=compress&cs=tinysrgb&w=800',
-      'https://images.pexels.com/photos/1029757/pexels-photo-1029757.jpeg?auto=compress&cs=tinysrgb&w=800',
-    ];
-
-    // Return placeholder images based on the number of uploaded files
-    return placeholderImages.slice(0, images.length);
-
-    // Uncomment below for actual Firebase Storage upload:
-    /*
     const uploadPromises = images.map(async (image, index) => {
-      const imageRef = ref(storage, `items/${itemId}/image_${index}_${Date.now()}`);
+      // Create a unique filename with timestamp
+      const timestamp = Date.now();
+      const fileExtension = image.name.split('.').pop() || 'jpg';
+      const fileName = `image_${index}_${timestamp}.${fileExtension}`;
+      
+      // Create storage reference
+      const imageRef = ref(storage, `items/${itemId}/${fileName}`);
+      
+      // Upload the file
       const snapshot = await uploadBytes(imageRef, image);
-      return getDownloadURL(snapshot.ref);
+      
+      // Get download URL
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      
+      return downloadURL;
     });
 
-    return Promise.all(uploadPromises);
-    */
+    // Wait for all uploads to complete
+    const imageUrls = await Promise.all(uploadPromises);
+    return imageUrls;
   } catch (error) {
     console.error('Error uploading images:', error);
-    throw new Error('Failed to upload images');
+    throw new Error('Failed to upload images. Please try again.');
+  }
+};
+
+export const deleteItemImages = async (imageUrls: string[]): Promise<void> => {
+  try {
+    const deletePromises = imageUrls.map(async (imageUrl) => {
+      try {
+        // Extract the path from the download URL
+        const url = new URL(imageUrl);
+        const pathMatch = url.pathname.match(/\/o\/(.+)\?/);
+        
+        if (pathMatch) {
+          const imagePath = decodeURIComponent(pathMatch[1]);
+          const imageRef = ref(storage, imagePath);
+          await deleteObject(imageRef);
+        }
+      } catch (error) {
+        console.error('Error deleting individual image:', error);
+        // Continue with other deletions even if one fails
+      }
+    });
+    
+    await Promise.all(deletePromises);
+  } catch (error) {
+    console.error('Error deleting images:', error);
+    // Don't throw error here as it's cleanup - log and continue
   }
 };
 
@@ -52,6 +76,27 @@ export const createItem = async (
   imageFiles: File[]
 ): Promise<string> => {
   try {
+    // Validate image files
+    if (imageFiles.length === 0) {
+      throw new Error('At least one image is required');
+    }
+
+    // Validate file sizes (max 5MB each)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    for (const file of imageFiles) {
+      if (file.size > maxSize) {
+        throw new Error(`Image "${file.name}" is too large. Maximum size is 5MB.`);
+      }
+    }
+
+    // Validate file types
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    for (const file of imageFiles) {
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error(`Image "${file.name}" has an unsupported format. Please use JPG, PNG, GIF, or WebP.`);
+      }
+    }
+
     // Create item document first to get ID
     const itemsRef = collection(db, 'items');
     const docRef = await addDoc(itemsRef, {
@@ -60,18 +105,24 @@ export const createItem = async (
       images: [], // Will be updated after image upload
     });
 
-    // Upload images (using placeholders for speed)
-    const imageUrls = await uploadItemImages(imageFiles, docRef.id);
+    try {
+      // Upload images to Firebase Storage
+      const imageUrls = await uploadItemImages(imageFiles, docRef.id);
 
-    // Update item with image URLs
-    await updateDoc(docRef, {
-      images: imageUrls
-    });
+      // Update item with image URLs
+      await updateDoc(docRef, {
+        images: imageUrls
+      });
 
-    return docRef.id;
+      return docRef.id;
+    } catch (uploadError) {
+      // If image upload fails, delete the created item document
+      await deleteDoc(docRef);
+      throw uploadError;
+    }
   } catch (error) {
     console.error('Error creating item:', error);
-    throw new Error('Failed to create item');
+    throw error instanceof Error ? error : new Error('Failed to create item');
   }
 };
 
@@ -191,18 +242,9 @@ export const deleteItem = async (itemId: string): Promise<void> => {
     if (itemDoc.exists()) {
       const itemData = itemDoc.data();
       
-      // Delete images from storage
+      // Delete images from Firebase Storage
       if (itemData.images && itemData.images.length > 0) {
-        const deletePromises = itemData.images.map(async (imageUrl: string) => {
-          try {
-            const imageRef = ref(storage, imageUrl);
-            await deleteObject(imageRef);
-          } catch (error) {
-            console.error('Error deleting image:', error);
-          }
-        });
-        
-        await Promise.all(deletePromises);
+        await deleteItemImages(itemData.images);
       }
     }
 

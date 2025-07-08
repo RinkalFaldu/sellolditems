@@ -21,6 +21,11 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   const handleFileSelect = (files: FileList | null) => {
     if (!files) return;
 
+    // Clear any previous errors
+    if (error) {
+      // This will be handled by parent component
+    }
+
     const newImages: File[] = [];
     const newPreviewUrls: string[] = [];
     const remainingSlots = maxImages - images.length;
@@ -31,11 +36,13 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       
       // Validate file type
       if (!file.type.startsWith('image/')) {
+        console.warn(`Skipping non-image file: ${file.name}`);
         continue;
       }
 
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
+        console.warn(`Skipping large file: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
         continue;
       }
 
@@ -139,7 +146,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
                 {isDragging ? 'Drop images here' : 'Click to upload or drag and drop'}
               </p>
               <p className="text-sm text-gray-500">
-                PNG, JPG, GIF up to 5MB each • {images.length}/{maxImages} images
+                PNG, JPG, GIF, WebP up to 5MB each • {images.length}/{maxImages} images
               </p>
             </div>
           )}
@@ -194,6 +201,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
               <li>• Show the item from multiple angles</li>
               <li>• Include any defects or wear in the photos</li>
               <li>• The first image will be used as the main thumbnail</li>
+              <li>• Supported formats: JPG, PNG, GIF, WebP (max 5MB each)</li>
             </ul>
           </div>
         </div>

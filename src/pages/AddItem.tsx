@@ -141,7 +141,24 @@ const AddItem: React.FC<AddItemProps> = ({ onBack, onSuccess }) => {
     } catch (error: any) {
       clearInterval(progressInterval);
       console.error('Error adding item:', error);
-      setErrors({ submit: error.message || 'Failed to create listing. Please try again.' });
+      
+      // Handle specific error types
+      let errorMessage = 'Failed to create listing. Please try again.';
+      
+      if (error.message) {
+        if (error.message.includes('too large')) {
+          errorMessage = error.message + ' Please compress your images or choose smaller files.';
+        } else if (error.message.includes('unsupported format')) {
+          errorMessage = error.message + ' Please use JPG, PNG, GIF, or WebP images.';
+        } else if (error.message.includes('At least one image')) {
+          errorMessage = 'Please upload at least one image of your item.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      setErrors({ submit: errorMessage });
+      setUploadProgress(0);
     } finally {
       setIsSubmitting(false);
     }
