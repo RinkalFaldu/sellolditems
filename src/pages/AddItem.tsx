@@ -95,13 +95,13 @@ const AddItem: React.FC<AddItemProps> = ({ onBack, onSuccess }) => {
     setUploadProgress(0);
     const interval = setInterval(() => {
       setUploadProgress(prev => {
-        if (prev >= 90) {
+        if (prev >= 85) {
           clearInterval(interval);
-          return 90;
+          return 85;
         }
-        return prev + Math.random() * 15;
+        return prev + Math.random() * 10;
       });
-    }, 200);
+    }, 150);
     return interval;
   };
 
@@ -117,6 +117,9 @@ const AddItem: React.FC<AddItemProps> = ({ onBack, onSuccess }) => {
     const progressInterval = simulateProgress();
 
     try {
+      // Set progress to 90% when starting actual upload
+      setTimeout(() => setUploadProgress(90), 100);
+      
       await addItem({
         title: formData.title,
         description: formData.description,
@@ -146,7 +149,9 @@ const AddItem: React.FC<AddItemProps> = ({ onBack, onSuccess }) => {
       let errorMessage = 'Failed to create listing. Please try again.';
       
       if (error.message) {
-        if (error.message.includes('too large')) {
+        if (error.message.includes('timeout')) {
+          errorMessage = 'Upload is taking too long. Please try with smaller images or check your internet connection.';
+        } else if (error.message.includes('too large')) {
           errorMessage = error.message + ' Please compress your images or choose smaller files.';
         } else if (error.message.includes('unsupported format')) {
           errorMessage = error.message + ' Please use JPG, PNG, GIF, or WebP images.';
