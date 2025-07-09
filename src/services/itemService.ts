@@ -32,10 +32,11 @@ export const uploadItemImages = async (images: File[], itemId: string): Promise<
     console.log('📤 Starting image upload process...');
     console.log('Number of images to upload:', images.length);
     console.log('Item ID:', itemId);
+    console.log('Current domain:', window.location.origin);
     
     // Upload images with timeout and better error handling
     const uploadPromises = images.map(async (image, index) => {
-      const uploadTimeout = 30000; // 30 second timeout per image
+      const uploadTimeout = 60000; // 60 second timeout per image for production
       
       return Promise.race([
         uploadSingleImage(image, index, itemId),
@@ -46,10 +47,9 @@ export const uploadItemImages = async (images: File[], itemId: string): Promise<
     });
 
     // Wait for all uploads to complete
-    // Wait for all uploads to complete
-   console.log('⏳ Waiting for all uploads to complete...');
-   const imageUrls = await Promise.all(uploadPromises) as string[];
-
+    console.log('⏳ Waiting for all uploads to complete...');
+    const imageUrls = await Promise.all(uploadPromises) as string[];
+    
     console.log('🎉 All images uploaded successfully!');
     console.log('Image URLs:', imageUrls);
     
@@ -103,11 +103,15 @@ const uploadSingleImage = async (image: File, index: number, itemId: string): Pr
     // Upload the file with metadata
     const metadata = {
       contentType: processedImage.type,
+      cacheControl: 'public,max-age=3600',
       customMetadata: {
         originalName: image.name,
-        uploadedAt: new Date().toISOString()
+        uploadedAt: new Date().toISOString(),
+        domain: window.location.origin
       }
     };
+    
+    console.log('📤 Uploading with metadata:', metadata);
     
     const snapshot = await uploadBytes(imageRef, processedImage, metadata);
     
@@ -121,6 +125,12 @@ const uploadSingleImage = async (image: File, index: number, itemId: string): Pr
     return downloadURL;
   } catch (error) {
     console.error(`❌ Error uploading image ${index + 1}:`, error);
+    
+    // Check for specific CORS errors
+    if (error instanceof Error && error.message.includes('CORS')) {
+      throw new Error('CORS policy error. Please check Firebase Storage configuration.');
+    }
+    
     throw error;
   }
 };
