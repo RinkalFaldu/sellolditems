@@ -16,6 +16,13 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 import { db, storage } from '../config/firebase';
 import { Item, User } from '../types';
 
+// Add retry configuration for better reliability
+const UPLOAD_CONFIG = {
+  maxRetries: 3,
+  retryDelay: 1000, // 1 second
+  timeout: 120000, // 2 minutes per image
+};
+
 // Debug function to check storage configuration
 const debugStorageConfig = () => {
   console.log('🔧 Storage Configuration Debug:');
@@ -33,22 +40,21 @@ export const uploadItemImages = async (images: File[], itemId: string): Promise<
     console.log('Number of images to upload:', images.length);
     console.log('Item ID:', itemId);
     console.log('Current domain:', window.location.origin);
+    console.log('Environment:', import.meta.env.MODE);
     
-    // Upload images with timeout and better error handling
-    const uploadPromises = images.map(async (image, index) => {
-      const uploadTimeout = 60000; // 60 second timeout per image for production
+    // Upload images sequentially to avoid overwhelming the server
+    const imageUrls: string[] = [];
+    
+    for (let i = 0; i < images.length; i++) {
+      console.log(`📤 Uploading image ${i + 1}/${images.length}...`);
+      const imageUrl = await uploadSingleImageWithRetry(images[i], i, itemId);
+      imageUrls.push(imageUrl);
       
-      return Promise.race([
-        uploadSingleImage(image, index, itemId),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error(`Upload timeout for image ${index + 1}`)), uploadTimeout)
-        )
-      ]);
-    });
-
-    // Wait for all uploads to complete
-    console.log('⏳ Waiting for all uploads to complete...');
-    const imageUrls = await Promise.all(uploadPromises) as string[];
+      // Add small delay between uploads to prevent rate limiting
+      if (i < images.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
     
     console.log('🎉 All images uploaded successfully!');
     console.log('Image URLs:', imageUrls);
@@ -67,6 +73,8 @@ export const uploadItemImages = async (images: File[], itemId: string): Promise<
         throw new Error('Invalid file format or storage configuration.');
       } else if (error.message.includes('storage/quota-exceeded')) {
         throw new Error('Storage quota exceeded. Please contact support.');
+      } else if (error.message.includes('CORS')) {
+        throw new Error('Network configuration error. Please try again or contact support.');
       } else {
         throw new Error(`Upload failed: ${error.message}`);
       }
@@ -74,6 +82,45 @@ export const uploadItemImages = async (images: File[], itemId: string): Promise<
     
     throw new Error('Failed to upload images. Please try again.');
   }
+};
+
+const uploadSingleImageWithRetry = async (image: File, index: number, itemId: string): Promise<string> => {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= UPLOAD_CONFIG.maxRetries; attempt++) {
+    try {
+      console.log(`📤 Upload attempt ${attempt}/${UPLOAD_CONFIG.maxRetries} for image ${index + 1}`);
+      
+      const imageUrl = await Promise.race([
+        uploadSingleImage(image, index, itemId),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error(`Upload timeout for image ${index + 1} (attempt ${attempt})`)), UPLOAD_CONFIG.timeout)
+        )
+      ]);
+      
+      console.log(`✅ Image ${index + 1} uploaded successfully on attempt ${attempt}`);
+      return imageUrl;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Unknown upload error');
+      console.warn(`⚠️ Upload attempt ${attempt} failed for image ${index + 1}:`, lastError.message);
+      
+      // Don't retry on certain errors
+      if (lastError.message.includes('storage/unauthorized') || 
+          lastError.message.includes('storage/invalid-argument') ||
+          lastError.message.includes('unsupported format')) {
+        throw lastError;
+      }
+      
+      // Wait before retrying (exponential backoff)
+      if (attempt < UPLOAD_CONFIG.maxRetries) {
+        const delay = UPLOAD_CONFIG.retryDelay * Math.pow(2, attempt - 1);
+        console.log(`⏳ Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError || new Error(`Failed to upload image ${index + 1} after ${UPLOAD_CONFIG.maxRetries} attempts`);
 };
 
 const uploadSingleImage = async (image: File, index: number, itemId: string): Promise<string> => {
@@ -107,7 +154,8 @@ const uploadSingleImage = async (image: File, index: number, itemId: string): Pr
       customMetadata: {
         originalName: image.name,
         uploadedAt: new Date().toISOString(),
-        domain: window.location.origin
+        domain: window.location.origin,
+        environment: import.meta.env.MODE || 'production'
       }
     };
     
@@ -127,8 +175,12 @@ const uploadSingleImage = async (image: File, index: number, itemId: string): Pr
     console.error(`❌ Error uploading image ${index + 1}:`, error);
     
     // Check for specific CORS errors
-    if (error instanceof Error && error.message.includes('CORS')) {
-      throw new Error('CORS policy error. Please check Firebase Storage configuration.');
+    if (error instanceof Error) {
+      if (error.message.includes('CORS')) {
+        throw new Error('CORS policy error. Please check Firebase Storage configuration.');
+      } else if (error.message.includes('network')) {
+        throw new Error('Network error. Please check your internet connection.');
+      }
     }
     
     throw error;
